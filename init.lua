@@ -428,7 +428,6 @@ require('lazy').setup({
           },
         },
       }
-
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
@@ -469,30 +468,127 @@ require('lazy').setup({
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
 
-      --- custom - Show only modified buffers TODO
-      -- vim.keymap.set('n', '<leader>bm', function()
-      --   local pickers = require 'telescope.pickers'
-      --   local finders = require 'telescope.finders'
-      --   local previewers = require 'telescope.previewers'
-      --   local conf = require('telescope.config').values
-      --   local make_entry = require 'telescope.make_entry'
-      --
-      --   local bufs = vim.tbl_filter(function(b)
-      --     return vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buflisted and vim.bo[b].modified
-      --   end, vim.api.nvim_list_bufs())
-      --
-      --   pickers
-      --     .new({}, {
-      --       prompt_title = 'Modified Buffers',
-      --       finder = finders.new_table {
-      --         results = bufs,
-      --         entry_maker = make_entry.gen_from_buffer {},
-      --       },
-      --       sorter = conf.generic_sorter {},
-      --       previewer = previewers.buffer_previewer {},
-      --     })
-      --     :find()
-      -- end)
+      -- Custom git status picker (works around telescope's async race in builtin.git_status)
+      vim.keymap.set('n', '<leader>sG', function()
+        local pickers = require 'telescope.pickers'
+        local finders = require 'telescope.finders'
+        local previewers = require 'telescope.previewers'
+        local conf = require('telescope.config').values
+
+        local cwd = vim.fn.getcwd()
+        local out = vim.system({ 'git', 'status', '-z', '-uall', '--', '.' }, { cwd = cwd, text = true }):wait()
+        if out.code ~= 0 then
+          vim.notify('git status failed: ' .. (out.stderr or ''), vim.log.levels.ERROR)
+          return
+        end
+
+        local results = {}
+        for entry in vim.gsplit(out.stdout, '\0', { plain = true }) do
+          if entry ~= '' then
+            local status, file = entry:sub(1, 2), entry:sub(4)
+            if file ~= '' then
+              table.insert(results, { status = status, file = file })
+            end
+          end
+        end
+
+        if #results == 0 then
+          vim.notify('No changes', vim.log.levels.INFO)
+          return
+        end
+
+        pickers
+          .new({}, {
+            prompt_title = 'Git Status',
+            finder = finders.new_table {
+              results = results,
+              entry_maker = function(item)
+                return {
+                  value = item.file,
+                  status = item.status,
+                  path = cwd .. '/' .. item.file,
+                  ordinal = item.file,
+                  display = string.format('%s %s', item.status, item.file),
+                }
+              end,
+            },
+            sorter = conf.file_sorter {},
+            previewer = previewers.git_file_diff.new { cwd = cwd },
+          })
+          :find()
+      end, { desc = '[S]earch [G]it status' })
+
+      -- Picker for unsaved buffer changes — shows diff between buffer content and file on disk
+      vim.keymap.set('n', '<leader>sb', function()
+        local pickers = require 'telescope.pickers'
+        local finders = require 'telescope.finders'
+        local previewers = require 'telescope.previewers'
+        local conf = require('telescope.config').values
+
+        local results = {}
+        for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+          if vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].buflisted and vim.bo[bufnr].modified then
+            local name = vim.api.nvim_buf_get_name(bufnr)
+            table.insert(results, { bufnr = bufnr, name = name ~= '' and name or ('[No Name #' .. bufnr .. ']') })
+          end
+        end
+
+        if #results == 0 then
+          vim.notify('No modified buffers', vim.log.levels.INFO)
+          return
+        end
+
+        local diff_previewer = previewers.new_buffer_previewer {
+          title = 'Unsaved Changes',
+          define_preview = function(self, entry)
+            local buf_lines = vim.api.nvim_buf_get_lines(entry.value.bufnr, 0, -1, false)
+            local disk_lines = {}
+            if vim.fn.filereadable(entry.value.name) == 1 then
+              disk_lines = vim.fn.readfile(entry.value.name)
+            end
+
+            local tmp_disk = vim.fn.tempname()
+            local tmp_buf = vim.fn.tempname()
+            vim.fn.writefile(disk_lines, tmp_disk)
+            vim.fn.writefile(buf_lines, tmp_buf)
+
+            local out = vim.system({ 'diff', '-u', tmp_disk, tmp_buf }, { text = true }):wait()
+            vim.fn.delete(tmp_disk)
+            vim.fn.delete(tmp_buf)
+
+            local lines = vim.split(out.stdout or '', '\n', { plain = true })
+            if #lines > 0 and lines[#lines] == '' then
+              table.remove(lines)
+            end
+            if #lines == 0 then
+              lines = { '(no textual diff)' }
+            end
+            vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+            vim.bo[self.state.bufnr].filetype = 'diff'
+          end,
+        }
+
+        pickers
+          .new({}, {
+            prompt_title = 'Modified Buffers',
+            finder = finders.new_table {
+              results = results,
+              entry_maker = function(item)
+                local short = vim.fn.fnamemodify(item.name, ':~:.')
+                return {
+                  value = item,
+                  ordinal = short,
+                  display = short,
+                  path = item.name ~= '' and item.name or nil,
+                  bufnr = item.bufnr,
+                }
+              end,
+            },
+            sorter = conf.generic_sorter {},
+            previewer = diff_previewer,
+          })
+          :find()
+      end, { desc = '[S]earch unsaved [B]uffer changes' })
     end,
   },
 
