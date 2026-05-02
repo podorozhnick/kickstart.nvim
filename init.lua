@@ -115,6 +115,16 @@ vim.o.showmode = false
 --  Remove this option if you want your OS clipboard to remain independent.
 --  See `:help 'clipboard'`
 vim.schedule(function()
+  -- On a headless SSH host there's no system clipboard; route through OSC 52
+  -- so yanks reach the local terminal's clipboard over the SSH connection.
+  if os.getenv 'SSH_TTY' then
+    local osc52 = require 'vim.ui.clipboard.osc52'
+    vim.g.clipboard = {
+      name = 'OSC 52',
+      copy = { ['+'] = osc52.copy '+', ['*'] = osc52.copy '*' },
+      paste = { ['+'] = osc52.paste '+', ['*'] = osc52.paste '*' },
+    }
+  end
   vim.o.clipboard = 'unnamedplus'
 end)
 
