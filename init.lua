@@ -413,15 +413,61 @@ require('lazy').setup({
 
       -- [[ Configure Telescope ]]
       -- See `:help telescope` and `:help telescope.setup()`
+      local action_state = require 'telescope.actions.state'
+
+      local function preview_winid(prompt_bufnr)
+        local picker = action_state.get_current_picker(prompt_bufnr)
+        if not picker then
+          return nil
+        end
+        local winid = picker.preview_win
+        if winid and vim.api.nvim_win_is_valid(winid) then
+          return winid
+        end
+        return nil
+      end
+
+      local function yank_preview(prompt_bufnr)
+        local winid = preview_winid(prompt_bufnr)
+        if not winid then
+          vim.notify('No preview to yank', vim.log.levels.WARN)
+          return
+        end
+        local bufnr = vim.api.nvim_win_get_buf(winid)
+        local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+        vim.fn.setreg('+', table.concat(lines, '\n'))
+        vim.notify(string.format('Yanked %d preview lines', #lines))
+      end
+
+      local function focus_preview(prompt_bufnr)
+        local winid = preview_winid(prompt_bufnr)
+        if not winid then
+          vim.notify('No preview to focus', vim.log.levels.WARN)
+          return
+        end
+        -- Telescope auto-closes the picker on BufLeave of the prompt buffer
+        -- (pickers.lua, group "PickerInsert"). Drop that autocmd so we can
+        -- hop into the preview to visually select / yank, then <C-w>p back.
+        pcall(vim.api.nvim_clear_autocmds, { group = 'PickerInsert', buffer = prompt_bufnr })
+        vim.api.nvim_set_current_win(winid)
+      end
+
       require('telescope').setup {
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
         defaults = {
-          -- mappings = {
-          --   i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-          -- },
           file_ignore_patterns = { '^vendor/' },
+          mappings = {
+            i = {
+              ['<C-y>'] = yank_preview,
+              ['<M-p>'] = focus_preview,
+            },
+            n = {
+              ['<C-y>'] = yank_preview,
+              ['<M-p>'] = focus_preview,
+            },
+          },
         },
         -- pickers = {}
         extensions = {
