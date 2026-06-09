@@ -215,6 +215,16 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 -- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
 -- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
 
+-- Move lines/selections up and down (re-indents to match destination)
+vim.keymap.set('n', '<A-j>', '<cmd>m .+1<CR>==', { desc = 'Move line down' })
+vim.keymap.set('n', '<A-k>', '<cmd>m .-2<CR>==', { desc = 'Move line up' })
+vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv", { desc = 'Move selection down' })
+vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv", { desc = 'Move selection up' })
+
+-- Open a new line below/above from insert mode (mirrors normal-mode o/O)
+vim.keymap.set('i', '<A-o>', '<C-o>o', { desc = 'Open line below' })
+vim.keymap.set('i', '<A-O>', '<C-o>O', { desc = 'Open line above' })
+
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 
