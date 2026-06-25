@@ -1,0 +1,17 @@
+-- Java support via nvim-jdtls.
+--
+-- jdtls is special: unlike most language servers it must be (re)started per
+-- project with a project-specific data/workspace directory, and it returns
+-- `jdt://` URIs for classes that live inside .jar files (the JDK, dependencies).
+-- nvim-jdtls registers a handler for those URIs so that "go to definition" can
+-- open library/stdlib classes (e.g. String, System) instead of failing with
+-- "No LSP Definition found".
+--
+-- The actual server is launched from after/ftplugin/java.lua, which Neovim runs
+-- every time a Java buffer is opened. This plugin spec just ensures the plugin
+-- (and the jdtls binary, installed by Mason) are available before then.
+return {
+  'mfussenegger/nvim-jdtls',
+  ft = 'java',
+  dependencies = { 'mason-org/mason.nvim' },
+}

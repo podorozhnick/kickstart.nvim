@@ -869,6 +869,9 @@ require('lazy').setup({
       local servers = {
         -- clangd = {},
         gopls = {},
+        -- NOTE: Java (jdtls) is intentionally NOT here. It's managed by the
+        -- nvim-jdtls plugin via after/ftplugin/java.lua, which handles jdt://
+        -- library navigation, per-project workspaces, and single-file projects.
         -- pyright = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
@@ -913,14 +916,24 @@ require('lazy').setup({
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
         'prettier', -- For JSON mainly
+        'jdtls', -- Java language server (driven by nvim-jdtls, see after/ftplugin/java.lua)
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
         ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
         automatic_installation = false,
+        -- mason-lspconfig v2 auto-enables every installed server via vim.lsp.enable().
+        -- Exclude jdtls so it isn't started here too -- nvim-jdtls owns it
+        -- (after/ftplugin/java.lua). Without this we get two Java servers attached.
+        automatic_enable = { exclude = { 'jdtls' } },
         handlers = {
           function(server_name)
+            -- jdtls is started by nvim-jdtls (after/ftplugin/java.lua); skip it
+            -- here so we don't end up with two Java servers attached at once.
+            if server_name == 'jdtls' then
+              return
+            end
             local server = servers[server_name] or {}
             -- This handles overriding only values explicitly passed
             -- by the server configuration above. Useful when disabling
@@ -1166,7 +1179,7 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = { 'bash', 'c', 'diff', 'html', 'java', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {

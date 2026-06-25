@@ -32,6 +32,16 @@ External Requirements:
 - Language Setup:
   - If you want to write Typescript, you need `npm`
   - If you want to write Golang, you will need `go`
+  - If you want to write Java, you need a JDK (17+) **and** its source archive.
+    The JDK provides `javac` and the runtime jdtls runs on; the source archive
+    (`src.zip`) is what lets "go to definition" open real JDK class sources
+    (`String`, `System`, ...) instead of decompiled stubs. On Fedora:
+    ```sh
+    sudo dnf install java-21-openjdk-devel java-21-openjdk-src
+    ```
+    (Debian/Ubuntu: `sudo apt install openjdk-21-jdk openjdk-21-source`.)
+    The `jdtls` language server itself is installed automatically by Mason.
+    See `after/ftplugin/java.lua` for the per-project launch config.
   - etc.
 
 > [!NOTE]
