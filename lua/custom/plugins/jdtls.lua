@@ -10,8 +10,7 @@
 -- The actual server is launched from after/ftplugin/java.lua, which Neovim runs
 -- every time a Java buffer is opened. This plugin spec just ensures the plugin
 -- (and the jdtls binary, installed by Mason) are available before then.
-return {
-  'mfussenegger/nvim-jdtls',
-  ft = 'java',
-  dependencies = { 'mason-org/mason.nvim' },
-}
+-- Installs the plugin; the server is launched per-buffer from
+-- after/ftplugin/java.lua (loaded only for `java` filetypes), and the jdtls
+-- binary itself is installed by Mason (see ensure_installed in init.lua).
+vim.pack.add { 'https://github.com/mfussenegger/nvim-jdtls' }
